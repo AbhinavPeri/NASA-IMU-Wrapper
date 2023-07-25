@@ -7,17 +7,17 @@ from ahrs.filters import EKF
 GRAVITY = np.array([0, 0, 9.802])
 
 # TODO: Change calibration parameters
-ACCEL_OFFSET = np.array([-3.50157689e-02, -2.89182617e-03, 1.00599958e+01])
+# ACCEL_OFFSET = np.array([-3.50157689e-02, -2.89182617e-03, 1.00599958e+01])
 GYRO_OFFSET = np.array([-0.00136681, 0.00487601, -0.0033906])
 MAG_ELLIPSOID_CENTER = np.array([0, 0, 0])
 MAG_ELLIPSOID_TRANSFORM = np.array([[1, 0, 0],
                                     [0, 1, 0],
                                     [0, 0, 1]])
 
-ACCEL_OFFSET = ACCEL_OFFSET
+# ACCEL_OFFSET = ACCEL_OFFSET - GRAVITY
 
 # TODO: Change covariances
-COVARIANCES = [0.3 ** 2, 0.3 ** 2, 0.3 ** 2]
+COVARIANCES = [2 ** 2, 0.1 ** 2, 0]
 
 
 class IMU:
@@ -53,7 +53,11 @@ class IMU:
     def get_calibrated_sensor_data(self):
         acc, gyro, mag = self.get_raw_sensor_data()
 
-        acc -= ACCEL_OFFSET
+        # acc -= ACCEL_OFFSET
+        # norm = np.linalg.norm(acc)
+        # if norm != 0:
+        #     acc *= 9.8 / norm
+
         gyro -= GYRO_OFFSET
 
         mag_tmp = mag - MAG_ELLIPSOID_CENTER

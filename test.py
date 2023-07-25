@@ -1,6 +1,8 @@
 import time
 from typing import List
 
+import ahrs.common.quaternion
+
 from IMU import IMU
 import numpy as np
 
@@ -121,13 +123,12 @@ def test_integration():
 
 
 def tilt_orientation():
-    q = np.array([1, 0, 0, 0])
     q_filter = Tilt()
-    while True:
-        accel, _, _, = imu.get_calibrated_sensor_data()
-        q = q_filter.estimate(accel)
-        euler = Quaternion(*q).to_euler(degrees=True)
-        print(euler)
+    accel, _, _, = imu.get_calibrated_sensor_data()
+    accel *= 9.8 / np.linalg.norm(accel)
+    q = ahrs.common.quaternion.Quaternion(q_filter.estimate(accel))
+    euler = np.rad2deg(q.to_angles())
+    return euler
 
 
 def test_filtering_kalman():
@@ -151,15 +152,17 @@ def tune_kalman_filter():
 
 def live_plotting(i, measured_data: List, real_data: List):
     accel, _, _, = imu.get_calibrated_sensor_data()
-    r_q = Tilt().estimate(accel)
-    r_euler = Quaternion(*r_q).to_euler(degrees=True)
+    r_euler = tilt_orientation()
 
     imu.update_data()
     m_q, _, _, _ = imu.get_data()
-    m_euler = Quaternion(*m_q).to_euler(degrees=True)
+    m_euler = np.rad2deg(ahrs.common.quaternion.Quaternion(m_q).to_angles())
 
     measured_data.append(m_euler[0])
     real_data.append(r_euler[0])
+
+    print("Kalman Filter: ", m_euler[0])
+    print("Measured Tilt: ", r_euler[0])
 
     # Limit x and y lists to 20 items
     measured_data = measured_data[-20:]
