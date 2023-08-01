@@ -181,4 +181,4 @@ def live_plotting(i, measured_data: List, real_data: List):
 
 
 if __name__ == '__main__':
-    tune_kalman_filter()
+    test_integration()
