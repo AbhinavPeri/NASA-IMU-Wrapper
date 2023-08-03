@@ -78,25 +78,25 @@ class IMU:
 
         return acc, gyro, mag
 
-    def update_data(self, dt=None):
+    def update_data(self):
         acc, gyro, mag = self.get_calibrated_sensor_data()
+        pass
+        # self.__acc = acc
+        # self.__gyro = gyro
+        # self.__mag_field = mag
+        
+        # if self.__filter_type == "K":
+            # self.__orientation_q = self.__filter.update(self.__orientation_q, gyro, acc, mag=mag if self.__use_mag else None)
+            # return
 
-        self.__acc = acc
-        self.__gyro = gyro
-        self.__mag_field = mag
-
-        if self.__filter_type == "K":
-            self.__orientation_q = self.__filter.update(self.__orientation_q, gyro, acc, mag=mag if self.__use_mag else None)
-            return
-
-        if self.__use_mag:
-            self.__orientation_q = self.__filter.updateMARG(self.__orientation_q, gyro, acc, mag)
-        else:
-            self.__orientation_q = self.__filter.updateIMU(self.__orientation_q, gyro, acc)
+        # if self.__use_mag:
+            # self.__orientation_q = self.__filter.updateMARG(self.__orientation_q, gyro, acc, mag)
+        # else:
+            # self.__orientation_q = self.__filter.updateIMU(self.__orientation_q, gyro, acc)
 
 
     def get_data(self):
-        return self.__orientation_q, self.__acc, self.__gyro, self.__mag
+        return self.__orientation_q, self.__acc, self.__gyro, self.__mag_field
 
     def reset(self, new_orientation_q: np.ndarray):
         self.__orientation_q = new_orientation_q
