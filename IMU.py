@@ -1,3 +1,4 @@
+import time
 import board
 import numpy as np
 from adafruit_lsm6ds.lsm6dsox import LSM6DSOX
@@ -6,20 +7,6 @@ from adafruit_lis3mdl import LIS3MDL
 from ahrs.filters import EKF, Madgwick
 
 GRAVITY = np.array([0, 0, 9.802])
-
-# TODO: Change calibration parameters
-# ACCEL_OFFSET = np.array([-7.56248618e-03, 1.48946819e-01, 0.2475915])
-GYRO_OFFSET = np.array([-0.00135783, 0.00470014, -0.0028537])
-MAG_ELLIPSOID_CENTER = np.array([311.13542933, -5.74025537, 317.9063922])
-MAG_ELLIPSOID_TRANSFORM = np.array([[0.58015691, -0.02669021, 0.44919358],
-                                    [-0.02669021, 0.13769037, 0.05340476],
-                                    [0.44919358, 0.05340476, 0.51868662]])
-
-# ACCEL_OFFSET = ACCEL_OFFSET - GRAVITY
-
-# TODO: Change covariances
-COVARIANCES = [0.5 ** 2, 0.8 ** 2, 1000 ** 2]
-BETA = 0.033
 
 class IMU:
 
@@ -34,9 +21,24 @@ class IMU:
         self.__gyro = np.zeros(3)
         self.__mag_field = np.zeros(3)
 
+        
+        # TODO: Change calibration parameters
+        # ACCEL_OFFSET = np.array([-7.56248618e-03, 1.48946819e-01, 0.2475915])
+        self.__GYRO_OFFSET = np.array([-0.00135783, 0.00470014, -0.0028537])
+        self.__MAG_ELLIPSOID_CENTER = np.array([-18.89318337, -5.33479581, 4.1571599])
+        self.__MAG_ELLIPSOID_TRANSFORM = np.array([[0.9656196, -0.02870685, 0.01056554],
+                                            [-0.02870685, 0.97188163, -0.0018772],
+                                            [0.01056554, -0.0018772, 0.96916144]])
+
+        # ACCEL_OFFSET = ACCEL_OFFSET - GRAVITY
+
+        # TODO: Change covariances
+        self.__COVARIANCES = [0.5 ** 2, 0.8 ** 2, 1000 ** 2]
+        self.__BETA = 0.045
+
         self.__use_mag = use_mag
         self.__setup_sensors()
-        self.__setup_filter(q0=self.__orientation_q, freq=freq)
+        self.__setup_filter(q0=self.__orientation_q)
 
     def __setup_sensors(self):
         i2c = board.I2C()
@@ -51,11 +53,11 @@ class IMU:
         self.__imu.gyro_range = gyro_range
         self.__imu.accel_range = accel_range
 
-    def __setup_filter(self, q0: np.ndarray, freq=52.5):
+    def __setup_filter(self, q0: np.ndarray):
         if self.__filter_type == "K":
-            self.__filter = EKF(q0=q0, noises=COVARIANCES, frequency=freq)
+            self.__filter = EKF(q0=q0, noises=self.__COVARIANCES)
         else:
-            self.__filter = Madgwick(q0=q0, gain=BETA, frequency=freq)
+            self.__filter = Madgwick(q0=q0, gain=self.__BETA)
 
     def get_raw_sensor_data(self):
         acc = np.array(self.__imu.acceleration)
@@ -71,28 +73,27 @@ class IMU:
         # if norm != 0:
         #     acc *= 9.8 / norm
 
-        gyro -= GYRO_OFFSET
+        gyro -= self.__GYRO_OFFSET
 
-        mag_tmp = mag - MAG_ELLIPSOID_CENTER
-        mag = MAG_ELLIPSOID_TRANSFORM.dot(mag_tmp)
+        mag_tmp = mag - self.__MAG_ELLIPSOID_CENTER
+        mag = self.__MAG_ELLIPSOID_TRANSFORM.dot(mag_tmp)
 
         return acc, gyro, mag
 
-    def update_data(self):
+    def update_data(self, dt):
         acc, gyro, mag = self.get_calibrated_sensor_data()
-        pass
-        # self.__acc = acc
-        # self.__gyro = gyro
-        # self.__mag_field = mag
+        self.__acc = acc
+        self.__gyro = gyro
+        self.__mag_field = mag
         
-        # if self.__filter_type == "K":
-            # self.__orientation_q = self.__filter.update(self.__orientation_q, gyro, acc, mag=mag if self.__use_mag else None)
-            # return
+        if self.__filter_type == "K":
+            self.__orientation_q = self.__filter.update(self.__orientation_q, gyro, acc, mag=mag if self.__use_mag else None, dt=dt)
+            return
 
-        # if self.__use_mag:
-            # self.__orientation_q = self.__filter.updateMARG(self.__orientation_q, gyro, acc, mag)
-        # else:
-            # self.__orientation_q = self.__filter.updateIMU(self.__orientation_q, gyro, acc)
+        if self.__use_mag:
+            self.__orientation_q = self.__filter.updateMARG(self.__orientation_q, gyro, acc, mag, dt=dt)
+        else:
+            self.__orientation_q = self.__filter.updateIMU(self.__orientation_q, gyro, acc, dt=dt)
 
 
     def get_data(self):
@@ -100,5 +101,17 @@ class IMU:
 
     def reset(self, new_orientation_q: np.ndarray):
         self.__orientation_q = new_orientation_q
-        self.__setup_filter(q0=new_orientation_q)
+        # self.__setup_filter(q0=new_orientation_q)
+    
+    def calibrate(self):
+        start_time = time.time()
+        cumsum = np.array([0.0, 0.0, 0.0])
+        counter = 0
+        while (time.time() - start_time < 4):
+            _, gyro_data, _ = self.get_raw_sensor_data()
+            cumsum += gyro_data
+            counter += 1
 
+        cumsum /= counter
+        print("IMU Calibration bias: " + str(cumsum))
+        self.__GYRO_OFFSET = cumsum

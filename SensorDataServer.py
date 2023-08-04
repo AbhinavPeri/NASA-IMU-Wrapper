@@ -16,7 +16,7 @@ sock = socket.socket(socket.AF_INET, # Internet
                      socket.SOCK_DGRAM) # UDP
 sock.bind((UDP_IP, UDP_PORT))
 
-imu = IMU(filter_type="M", use_mag=False)
+imu = IMU(filter_type="M", use_mag=True)
 
 
 def tilt_orientation():

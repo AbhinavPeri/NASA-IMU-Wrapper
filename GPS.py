@@ -12,7 +12,7 @@ class GPS:
         self.__uart = serial.Serial("/dev/ttyUSB0", baudrate=9600, timeout=10)
         self.__gps = adafruit_gps.GPS(self.__uart, debug=False)
         self.__gps.send_command(b"PMTK314,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0")
-        self.__gps.send_command(b"PMTK220,1000")
+        self.__gps.send_command(b"PMTK220,500")
         
         # data
         self.__location = None
@@ -25,22 +25,21 @@ class GPS:
 
 
     def __gps_update(self):
+        while not self.__gps.has_fix:
+            self.__gps.update()
+            print("GPS Thread: Waiting for fix...")
+            time.sleep(1)
+        
+        print("GPS Thread: Fix Acquired")
+
         while True:
             
             self.__gps.update()
 
-            if not self.__gps.has_fix:
-                print("Waiting for fix...")
-                time.sleep(1)
-                continue
-            
             self.__location = [self.__gps.latitude_degrees, self.__gps.latitude_minutes, self.__gps.longitude_degrees, self.__gps.longitude_minutes]
             self.__track_angle_deg = self.__gps.track_angle_deg
             self.__speed_knots = self.__gps.speed_knots
-            self.__timestamp = time.time()
-
-            time.sleep(0.3)
-        
+            self.__timestamp = time.time() 
     
     def get_data(self):
         return self.__location, self.__track_angle_deg, self.__speed_knots, self.__timestamp

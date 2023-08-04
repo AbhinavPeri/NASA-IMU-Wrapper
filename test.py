@@ -1,11 +1,19 @@
-from IMUService import IMUService
-from GPS.GPS import GPS
+from PoseEstimator import PoseEstimator
 import time
+from squaternion import Quaternion
+from IMUService import IMUService
+import numpy as np
 
 if __name__ == '__main__':
-    # service = IMUService(freq=50, filter_type="M")
-    gps = GPS()
+    
+    p = PoseEstimator(alpha=0.7, freq=20, imu_filter_type="M", use_mag=False)
+    p.reset(206)
+    # imu = IMUService(freq=20, filter_type="M", use_mag=False)
+    # imu.reset()
     while True:
-        print(gps.get_data())
-        time.sleep(0.5)
-        # print(service.get_data())
+        _, angles = p.get_pose()
+        print(angles)
+        # q, _, _, _ = imu.get_data()
+        # if not q is None:
+            # angles = Quaternion(*q).to_euler(degrees=True)
+            # print(angles)
