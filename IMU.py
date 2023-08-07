@@ -1,5 +1,6 @@
 import time
 import board
+import busio
 import numpy as np
 from adafruit_lsm6ds.lsm6dsox import LSM6DSOX
 from adafruit_lsm6ds import GyroRange, AccelRange, Rate
@@ -41,7 +42,7 @@ class IMU:
         self.__setup_filter(q0=self.__orientation_q)
 
     def __setup_sensors(self):
-        i2c = board.I2C()
+        i2c = busio.I2C(board.SCL, board.SDA, frequency=6700) 
         self.__imu = LSM6DSOX(i2c)
         self.__mag = LIS3MDL(i2c)
 

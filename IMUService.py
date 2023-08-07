@@ -31,5 +31,5 @@ class IMUService:
     def get_data(self):
         return self.__data
 
-    def reset(self):
-        self.__imu.reset(np.array([1.0, 0.0, 0.0, 0.0]))
+    def reset(self, q=np.array([1.0, 0.0, 0.0, 0.0])):
+        self.__imu.reset(q)
