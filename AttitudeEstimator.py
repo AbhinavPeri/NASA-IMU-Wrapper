@@ -41,9 +41,6 @@ class AttitudeEstimatorGPSIMU:
         self.__imu.calibrate()
         print("Attitude Estimator: Calibration has finished")
 
-        print("Attitude Estimator: Acquiring GPS fix")
-        self.__has_gps = self.__gps.acquire_gps_fix(1)
-        
         # Setting up timed loop
         expected_wake_time = time.time()
         while True:
@@ -63,9 +60,9 @@ class AttitudeEstimatorGPSIMU:
     
 
     def __fuse_gps_imu(self):
-        # start = time.time() 
+        start = time.time() 
         if self.__has_gps:
-            _, gps_heading, gps_speed, new_message_received = self.__gps.get_data()
+            _, gps_heading, gps_speed, new_message_received = self.__gps.get_gps_data()
        
         self.__imu.update_data(1/self.__freq)
         
@@ -87,10 +84,12 @@ class AttitudeEstimatorGPSIMU:
             new_q = Quaternion.from_euler(*self.__orientation, degrees=True)
             self.__imu.reset(np.array(new_q))
 
-        # print(time.time() - start)
+        print(time.time() - start)
    
     
     def start(self):
+        self.__gps.start()
+        print("Acquiring GPS Signal")
         self.__thread.start()
         print("Attitude Estimator Started")
 
