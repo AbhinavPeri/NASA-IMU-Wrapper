@@ -10,6 +10,7 @@ if __name__ == '__main__':
     attitude_estimator = AttitudeEstimatorGPSIMU(freq=80, alpha=0.7, gps_yaw_offset=282)
     pose_estimator = PoseEstimator(attitude_estimator)
     pose_estimator.start()
+    # attitude_estimator.start()
     while True:
         angles = pose_estimator.get_orientation()
         print(angles)

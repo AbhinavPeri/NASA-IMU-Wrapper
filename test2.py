@@ -4,12 +4,15 @@ import time
 
 if __name__ == "__main__":
     gps = GPS()
-    gps.start()
-    max_time = 0
+    gps.acquire_gps_fix(-1)
+
+    avg_time = 0
+    count = 0
     while True:
         start = time.monotonic()
-        gps.get_gps_data()
-        max_time = max(max_time, time.monotonic() - start)
-        print(max_time)
+        gps.get_data()
+        avg_time = (avg_time * count + (time.monotonic() - start)) / (count + 1)
+        count += 1
+        print(avg_time)
         time.sleep(0.1)
 
