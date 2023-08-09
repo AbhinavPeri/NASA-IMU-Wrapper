@@ -7,10 +7,10 @@ import numpy as np
 
 if __name__ == '__main__':
     
-    attitude_estimator = AttitudeEstimatorGPSIMU(freq=80, alpha=0.7, gps_yaw_offset=282)
+    attitude_estimator = AttitudeEstimatorGPSIMU(freq=40, alpha=0.7, gps_yaw_offset=282)
     pose_estimator = PoseEstimator(attitude_estimator)
     pose_estimator.start()
     while True:
         angles = pose_estimator.get_orientation()
-        print(angles)
-        # time.sleep(0.001)
+        # print(angles)
+        time.sleep(0.1)

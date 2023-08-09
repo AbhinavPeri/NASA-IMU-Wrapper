@@ -5,6 +5,7 @@ import time
 import numpy as np
 from squaternion import Quaternion
 import logging
+import signal
 
 
 #now we will Create and configure logger
@@ -33,7 +34,8 @@ class AttitudeEstimatorGPSIMU:
         self.__gps_yaw_offset = gps_yaw_offset
         
         self.__orientation = np.zeros(3)
-        
+        self.__measured_dt_start = None        
+        signal.signal(signal.ALRM, lambda signum, frame : raise Exception())
 
     def __update(self):
         # Starting Sensors
@@ -42,16 +44,18 @@ class AttitudeEstimatorGPSIMU:
         print("Attitude Estimator: Calibration has finished")
 
         print("Attitude Estimator: Acquiring GPS fix")
-        self.__has_gps = self.__gps.acquire_gps_fix(1)
+        self.__has_gps = self.__gps.acquire_gps_fix(-1)
         
         # Setting up timed loop
         expected_wake_time = time.time()
+        prev_offset = None
         while True:
             start = time.time()
             offset_time = start - expected_wake_time
-            if offset_time > 0.002:
+            if prev_offset and offset_time - prev_offset > 0.002:
                 print("Attitude Estimator Thread is not waking up consistently. Unable to meet specified frequency")
-            
+            prev_offset = offset_time
+
             # Fusing GPS and IMU estimates
             self.__fuse_gps_imu()
             
@@ -64,11 +68,24 @@ class AttitudeEstimatorGPSIMU:
 
     def __fuse_gps_imu(self):
         # start = time.time() 
-        if self.__has_gps:
-            _, gps_heading, gps_speed, new_message_received = self.__gps.get_data()
-       
-        self.__imu.update_data(1/self.__freq)
         
+        signal.alarm(0.01)
+        try:
+            if self.__has_gps:
+                _, gps_heading, gps_speed, new_message_received = self.__gps.get_data()
+        except:
+            pass
+
+        measured_dt = None
+        if self.__measured_dt_start:
+            measured_dt = time.time() - self.__measured_dt_start
+        else:
+            measured_dt = 1 / self.__freq
+        print(measured_dt)
+        self.__imu.update_data(measured_dt)
+        
+        self.__measured_dt_start = time.time()
+
         q, _, _, _ = self.__imu.get_data()
         q = Quaternion(*q)
         e = np.array(q.to_euler(degrees=True))
