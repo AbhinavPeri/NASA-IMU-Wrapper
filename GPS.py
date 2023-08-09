@@ -32,7 +32,7 @@ class GPS:
     def acquire_gps_fix(self, timeout=-1):
         start = time.time()
         while not self.__gps.has_fix:
-            if time.time() - start > timeout and timeout > 0:
+            if time.time() - start > timeout and timeout >= 0:
                 break
             self.__gps.update()
             print("GPS: Waiting for fix...")

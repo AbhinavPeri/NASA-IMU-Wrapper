@@ -12,5 +12,5 @@ if __name__ == '__main__':
     pose_estimator.start()
     while True:
         angles = pose_estimator.get_orientation()
-        # print(angles)
+        print(angles)
         time.sleep(0.1)

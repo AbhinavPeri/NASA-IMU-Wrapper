@@ -34,8 +34,7 @@ class AttitudeEstimatorGPSIMU:
         self.__gps_yaw_offset = gps_yaw_offset
         
         self.__orientation = np.zeros(3)
-        self.__measured_dt_start = None        
-        signal.signal(signal.ALRM, lambda signum, frame : raise Exception())
+
 
     def __update(self):
         # Starting Sensors
@@ -44,7 +43,7 @@ class AttitudeEstimatorGPSIMU:
         print("Attitude Estimator: Calibration has finished")
 
         print("Attitude Estimator: Acquiring GPS fix")
-        self.__has_gps = self.__gps.acquire_gps_fix(-1)
+        self.__has_gps = self.__gps.acquire_gps_fix(0.1)
         
         # Setting up timed loop
         expected_wake_time = time.time()
@@ -65,34 +64,42 @@ class AttitudeEstimatorGPSIMU:
                 print("Attitude Estimator Thread Duration exceeds specified frequency")
             time.sleep(max(sleep_time - 0.001, 0))
     
+    
+    def __get_gps_data_timed(t):
+    
+        def timeout_handler(signum, frame):
+            raise Exception("Function call timed out")
+
+
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.setitimer(signal.ITIMER_REAL, t)
+    
+        try:
+            data = self.__gps.get_data()
+        except:
+            return_val = [True, data]
+        else:
+            return_val = [False, data]
+
+        signal.setitimer(signal.ITIMER_REAL, 0)  # Cancel the timer
+        return return_val
+
 
     def __fuse_gps_imu(self):
-        # start = time.time() 
+        use_gps_data = False
+        if self.__has_gps:
+            gps_timed_out, _, gps_heading, gps_speed, new_message_received = self.__get_gps_data_timed(0.005)
+            use_gps_data = new_message_received and not gps_timed_out and gps_speed > 1.6
         
-        signal.alarm(0.01)
-        try:
-            if self.__has_gps:
-                _, gps_heading, gps_speed, new_message_received = self.__gps.get_data()
-        except:
-            pass
-
-        measured_dt = None
-        if self.__measured_dt_start:
-            measured_dt = time.time() - self.__measured_dt_start
-        else:
-            measured_dt = 1 / self.__freq
-        print(measured_dt)
-        self.__imu.update_data(measured_dt)
+        self.__imu.update_data(1 / self.__freq)
         
-        self.__measured_dt_start = time.time()
-
         q, _, _, _ = self.__imu.get_data()
         q = Quaternion(*q)
         e = np.array(q.to_euler(degrees=True))
         
         self.__orientation = e
 
-        if self.__has_gps and new_message_received and gps_speed > 1.6:
+        if use_gps_data:
             gps_heading = self.convert_gps_to_imu(gps_heading)
 
             logger.debug("=" * 20)
@@ -104,8 +111,6 @@ class AttitudeEstimatorGPSIMU:
             new_q = Quaternion.from_euler(*self.__orientation, degrees=True)
             self.__imu.reset(np.array(new_q))
 
-        # print(time.time() - start)
-   
     
     def start(self):
         self.__thread.start()
