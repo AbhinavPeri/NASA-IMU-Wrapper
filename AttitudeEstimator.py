@@ -43,7 +43,7 @@ class AttitudeEstimatorGPSIMU:
         print("Attitude Estimator: Calibration has finished")
 
         print("Attitude Estimator: Acquiring GPS fix")
-        self.__has_gps = self.__gps.acquire_gps_fix(0.1)
+        self.__has_gps = self.__gps.acquire_gps_fix(0)
         
         # Setting up timed loop
         expected_wake_time = time.time()
@@ -65,7 +65,7 @@ class AttitudeEstimatorGPSIMU:
             time.sleep(max(sleep_time - 0.001, 0))
     
     
-    def __get_gps_data_timed(t):
+    def __get_gps_data_timed(self, t):
     
         def timeout_handler(signum, frame):
             raise Exception("Function call timed out")

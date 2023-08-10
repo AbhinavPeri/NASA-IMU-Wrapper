@@ -1,5 +1,6 @@
 from AttitudeEstimator import AttitudeEstimatorGPSIMU
 from multiprocessing import Process, Pipe
+import numpy as np
 
 class PoseEstimator:
 
@@ -35,4 +36,4 @@ class PoseEstimator:
         self.__request_data[1].send(True)
         if self.__receive_data[0].poll(timeout=0.01):
             return self.__receive_data[0].recv()
-        return None
+        return np.zeros(3)
