@@ -248,7 +248,7 @@ if __name__ == '__main__':
     os.system('sudo ip link set can0 type can bitrate 500000')
     os.system('sudo ip link set can0 up')
 
-    f = open("output4.json", "r")
+    f = open("output.json", "r")
     path_json = json.load(f)
 
     start_time = time.perf_counter()
@@ -294,7 +294,7 @@ if __name__ == '__main__':
             bus.send(rf)
             bus.send(lr)
             bus.send(rr)
-
+            
             log_data(1, p.get_orientation()[2])
 
             if start_auto:
@@ -321,8 +321,9 @@ if __name__ == '__main__':
                     #print(len(path_json['time']) , " " , counter)
                     left_rpm = radps_to_rpm(speeds[0]) * gear_ratio
                     right_rpm = radps_to_rpm(speeds[1]) * gear_ratio
-                    log_data(2, speeds[0])
-                    log_data(3, speeds[1])
+                    log_data(3, right_rpm)
+
+                    log_data(2, rpm_listener.rf_rpm)
                     #print(right_rpm, ' ', left_rpm)
                     lf, rf, lr, rr = drive(left_rpm, right_rpm, left_rpm, right_rpm)
 
@@ -355,8 +356,7 @@ if __name__ == '__main__':
 
                 print('done running path')
                 start_auto = False
-                time.sleep(5)
-
+                time.sleep(2)
             # time.sleep(0.001 * max(0, 20-(t1-t0)))
             time.sleep(0.05)
 
