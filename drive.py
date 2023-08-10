@@ -9,14 +9,11 @@ import asyncio
 import websockets
 import threading
 import sys
-#sys.path.append('/IMUWrapper/NASA-IMU-Wrapper')
+# sys.path.append('/IMUWrapper/NASA-IMU-Wrapper')
 from PoseEstimator import PoseEstimator
 from AttitudeEstimator import AttitudeEstimatorGPSIMU as AttitudeEstimator
 from typing import Any
 from simple_pid import PID
-
-
-
 
 addr = os.environ.get('ADDR', '172.20.10.7')
 port = int(os.environ.get('PORT', '8000'))
@@ -33,21 +30,39 @@ y_axis = 0
 
 voltage_cutoff = 41
 
-logged_data = [0,0,0,0]
+logged_data = [0, 0, 0, 0]
 
 from collections import namedtuple
+
 Point = namedtuple('Point', 'x y theta')
 
 p = PoseEstimator(AttitudeEstimator(freq=20, alpha=0.7, gps_yaw_offset=282))
 p.start()
-pid = PID(0.02, 0, 0, setpoint = 0) #this is the PID tuning values and the setpoint!!! 
-pid.sample_time = 0.02 #Also this PID timing value needs to be adjusted it is currently set at 
+
+
+def pi_clip(angle):
+    if angle > 0:
+        if angle > math.pi:
+            return angle - 2 * math.pi
+    else:
+        if angle < -math.pi:
+            return angle + 2 * math.pi
+    return angle
+
+
+pid = PID(0.02, 0, 0, setpoint=0)  # this is the PID tuning values and the setpoint!!!
+pid.sample_time = 0.02  # Also this PID timing value needs to be adjusted it is currently set at
+pid.error_map = pi_clip
+
 
 def ramsete(target: Point, actual: Point, v, omega, b=2, zeta=0.7):
-    e = np.array([[math.cos(actual.theta), math.sin(actual.theta), 0], [-math.sin(actual.theta), math.cos(actual.theta), 0], [0, 0, 1]]) @ np.array([[target.x - actual.x], [target.y - actual.y], [target.theta - actual.theta]])
-    k = 2 * zeta * math.sqrt(omega**2 + b * v**2)
+    e = np.array(
+        [[math.cos(actual.theta), math.sin(actual.theta), 0], [-math.sin(actual.theta), math.cos(actual.theta), 0],
+         [0, 0, 1]]) @ np.array([[target.x - actual.x], [target.y - actual.y], [target.theta - actual.theta]])
+    k = 2 * zeta * math.sqrt(omega ** 2 + b * v ** 2)
     v_out = v * math.cos(e[2]) + k * e[0]
-    omega_out = omega + k * e[2] + (b * v * math.sin(e[2]) * e[1])/e[2]
+    omega_out = omega + k * e[2] + (b * v * math.sin(e[2]) * e[1]) / e[2]
+
 
 def dead_band(left, right, left_dead, right_dead):
     if abs(left) <= left_dead:
@@ -57,6 +72,7 @@ def dead_band(left, right, left_dead, right_dead):
 
     return (left, right)
 
+
 def teleop_drive():
     global x_axis
     global y_axis
@@ -65,29 +81,34 @@ def teleop_drive():
     left, right = dead_band(left, right, 0.1, 0.1)
     return (left, right)
 
+
 def forward_kinematics(w_l, w_r, b, r, phi):
     V = r * (w_l + w_r) / 2
     w = (w_l - w_r) / b
     v = np.array([[math.cos(phi), 0], [math.sin(phi), 0], [0, r]]) @ np.array([[V], [w]])
     return (v[0], v[1], v[2])
 
+
 def wheel_speeds(V, w, b, r):
-    #print('wheel speeds call -----------')
-    #print('linear velocity ', V, 'm/s')
-    #print('angular velocity ', w, 'rad/s')
-    w *= 1.6 # fudge factor for turning
+    # print('wheel speeds call -----------')
+    # print('linear velocity ', V, 'm/s')
+    # print('angular velocity ', w, 'rad/s')
+    w *= 1.6  # fudge factor for turning
     left_speed = (-V + w * b / 2) / r
     right_speed = (-V - w * b / 2) / r
     print('left speed', left_speed)
     print('right speed', right_speed)
-    #print('end wheel speeds call -------')
+    # print('end wheel speeds call -------')
     return [left_speed, right_speed]
+
 
 def radps_to_rpm(rad):
     return (rad / (2 * math.pi)) * 60
 
+
 def rpm_to_radps(rpm):
     return (rpm * 2 * math.pi) / 60
+
 
 class RPMListener(can.Listener):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -104,7 +125,6 @@ class RPMListener(can.Listener):
         self.rf_v_in = 0.0
         self.lr_v_in = 0.0
         self.rr_v_in = 0.0
-
 
     def on_message_received(self, msg: can.Message) -> None:
         if self.is_stopped:
@@ -131,7 +151,6 @@ class RPMListener(can.Listener):
             if msg.arbitration_id == 0x904:
                 self.rr_rpm = self.get_rpm(msg)
 
-
     def stop(self) -> None:
         self.is_stopped = True
 
@@ -151,9 +170,11 @@ def get_deg_180_to_180(deg):
     else:
         return -deg
 
+
 def format_can_set_erpm_data(erpm):
     erpm = int(round(erpm))
     return erpm.to_bytes(4, byteorder='big', signed=True)
+
 
 def drive(lf_rpm, rf_rpm, lr_rpm, rr_rpm):
     lf_data = format_can_set_erpm_data(lf_rpm * -6)
@@ -161,32 +182,36 @@ def drive(lf_rpm, rf_rpm, lr_rpm, rr_rpm):
     lr_data = format_can_set_erpm_data(lr_rpm * -6)
     rr_data = format_can_set_erpm_data(rr_rpm * -6)
 
-    msg_lf = can.Message(arbitration_id=0x301, data = lf_data)
-    msg_rf = can.Message(arbitration_id=0x302, data = rf_data)
-    msg_lr = can.Message(arbitration_id=0x303, data = lr_data)
-    msg_rr = can.Message(arbitration_id=0x304, data = rr_data)
+    msg_lf = can.Message(arbitration_id=0x301, data=lf_data)
+    msg_rf = can.Message(arbitration_id=0x302, data=rf_data)
+    msg_lr = can.Message(arbitration_id=0x303, data=lr_data)
+    msg_rr = can.Message(arbitration_id=0x304, data=rr_data)
     return (msg_lf, msg_rf, msg_lr, msg_rr)
+
 
 def diag_data():
     # volt = odrv0.vbus_voltage
     # l_vel = odrv0.axis0.encoder.vel_estimate
     # r_vel = odrv0.axis1.encoder.vel_estimate
-    #_, real_orientation = p.get_pose()
+    # _, real_orientation = p.get_pose()
     # return f'{volt}:{l_vel}:{r_vel}:{real_orientation}'
     return ''
+
 
 async def phandler(websocket):
     global logged_data
     while True:
-        #data = diag_data()
+        # data = diag_data()
         await websocket.send(str(logged_data)[1:-1])
-        #resp = await websocket.recv()
-        #print(resp)
-        await asyncio.sleep(200/1000)
+        # resp = await websocket.recv()
+        # print(resp)
+        await asyncio.sleep(200 / 1000)
+
 
 def log_data(data_id, data):
     global logged_data
     logged_data[data_id] = data
+
 
 async def chandler(websocket):
     global x_axis
@@ -219,7 +244,8 @@ async def chandler(websocket):
             start_auto = True
         x_axis = float(vals[2])
         y_axis = float(vals[3])
-        await asyncio.sleep(20/1000)
+        await asyncio.sleep(20 / 1000)
+
 
 async def handler(websocket):
     await asyncio.gather(
@@ -240,6 +266,7 @@ async def idk():
 def async_main():
     asyncio.run(idk())
 
+
 th = threading.Thread(target=async_main)
 th.start()
 
@@ -253,28 +280,27 @@ if __name__ == '__main__':
 
     start_time = time.perf_counter()
 
-
     filters = [
-        {'can_id': 0x901, 'can_mask': 0x9ff, 'extended': True}, # rpm
+        {'can_id': 0x901, 'can_mask': 0x9ff, 'extended': True},  # rpm
         {'can_id': 0x902, 'can_mask': 0x9ff, 'extended': True},
         {'can_id': 0x903, 'can_mask': 0x9ff, 'extended': True},
         {'can_id': 0x904, 'can_mask': 0x9ff, 'extended': True},
-        {'can_id': 0x1b01, 'can_mask': 0x1b01, 'extended': True}, # voltage
+        {'can_id': 0x1b01, 'can_mask': 0x1b01, 'extended': True},  # voltage
         {'can_id': 0x1b02, 'can_mask': 0x1b02, 'extended': True},
         {'can_id': 0x1b03, 'can_mask': 0x1b03, 'extended': True},
         {'can_id': 0x1b04, 'can_mask': 0x1b04, 'extended': True},
     ]
     with can.ThreadSafeBus(interface='socketcan',
-                    channel='can0',
-                    can_filters=filters,
-                    receive_own_messages=True) as bus:
+                           channel='can0',
+                           can_filters=filters,
+                           receive_own_messages=True) as bus:
 
         rpm_listener = RPMListener()
         can.Notifier(bus, [rpm_listener])
 
         while True:
             t1 = 1000 * time.monotonic()
-            #if rpm_listener.lf_v_in + rpm_listener.rf_v_in + rpm_listener.lr_v_in + rpm_listener.rr_v_in < voltage_cutoff * 4:
+            # if rpm_listener.lf_v_in + rpm_listener.rf_v_in + rpm_listener.lr_v_in + rpm_listener.rr_v_in < voltage_cutoff * 4:
             #    print('battery low')
             #    lf, rf, lr, rr = drive(0, 0, 0, 0)
 
@@ -294,7 +320,7 @@ if __name__ == '__main__':
             bus.send(rf)
             bus.send(lr)
             bus.send(rr)
-            
+
             log_data(1, p.get_orientation()[2])
 
             if start_auto:
@@ -306,25 +332,27 @@ if __name__ == '__main__':
                 while counter < len(path_json) - 1:
                     offset_time = time.perf_counter()
                     # speeds = wheel_speeds(0, 0.25, vehicle_width, vehicle_radius)
-                
+
                     real_orientation = p.get_orientation()[2]
-                    target_orientation = get_deg_180_to_180((path_json[counter]['pose']['rotation']['radians'] / (2 * math.pi)) * 360) #this converts from radians to degrees
+                    target_orientation = get_deg_180_to_180((path_json[counter]['pose']['rotation']['radians'] / (
+                            2 * math.pi)) * 360)  # this converts from radians to degrees
                     pid.setpoint = target_orientation
                     log_data(0, target_orientation)
                     log_data(1, real_orientation)
                     corrective_angular_velocity = pid(real_orientation)
                     angular_velocity = path_json[counter]['angularVelocity']
-                    speeds = wheel_speeds(path_json[counter]['velocity'], corrective_angular_velocity + angular_velocity, vehicle_width, vehicle_radius)
+                    speeds = wheel_speeds(path_json[counter]['velocity'],
+                                          corrective_angular_velocity + angular_velocity, vehicle_width, vehicle_radius)
 
-                    #print(rpm_listener.rf_rpm, ' ', rpm_listener.lf_rpm, path_json['ang_vel'][counter])
-                    #print(rpm_listener.v_in)
-                    #print(len(path_json['time']) , " " , counter)
+                    # print(rpm_listener.rf_rpm, ' ', rpm_listener.lf_rpm, path_json['ang_vel'][counter])
+                    # print(rpm_listener.v_in)
+                    # print(len(path_json['time']) , " " , counter)
                     left_rpm = radps_to_rpm(speeds[0]) * gear_ratio
                     right_rpm = radps_to_rpm(speeds[1]) * gear_ratio
                     log_data(3, right_rpm)
 
                     log_data(2, rpm_listener.rf_rpm)
-                    #print(right_rpm, ' ', left_rpm)
+                    # print(right_rpm, ' ', left_rpm)
                     lf, rf, lr, rr = drive(left_rpm, right_rpm, left_rpm, right_rpm)
 
                     bus.send(lf)
@@ -332,25 +360,23 @@ if __name__ == '__main__':
                     bus.send(lr)
                     bus.send(rr)
 
-
                     # w_l = rpm_to_radps(rpm_listener.lf_rpm)
                     # w_r = rpm_to_radps(rpm_listener.rf_rpm)
-                    #w_l = rpm_to_radps(left_rpm / gear_ratio)
-                    #w_r = rpm_to_radps(right_rpm / gear_ratio)
+                    # w_l = rpm_to_radps(left_rpm / gear_ratio)
+                    # w_r = rpm_to_radps(right_rpm / gear_ratio)
                     # print('error ', (rpm_listener.lf_rpm - left_rpm) / gear_ratio, ' ', (rpm_listener.rf_rpm - right_rpm) / gear_ratio)
-                    #print('error ', (rpm_listener.lf_rpm / left_rpm) / gear_ratio, ' ', (rpm_listener.rf_rpm / right_rpm) / gear_ratio)
+                    # print('error ', (rpm_listener.lf_rpm / left_rpm) / gear_ratio, ' ', (rpm_listener.rf_rpm / right_rpm) / gear_ratio)
                     # v_x, v_y, v_phi = forward_kinematics(w_l, w_r, vehicle_width, vehicle_radius, phi)
                     # x += v_x * min(0.02, dt)
                     # y += v_y * min(0.02, dt)
                     # phi += v_phi * min(0.02, dt)
-                    #print(left_rpm, ' ', right_rpm, path_json['ang_vel'][counter])
+                    # print(left_rpm, ' ', right_rpm, path_json['ang_vel'][counter])
                     # print('x y phi', x, ' ', y, ' ', phi, ' ', v_phi)
-                    #print(path_json['ang_vel'][counter] / v_phi)
-                    
-
+                    # print(path_json['ang_vel'][counter] / v_phi)
 
                     offset_end_time = time.perf_counter()
-                    extra_wait_time = path_json[counter]['time'] - path_json[counter - 1]['time'] - (offset_end_time - offset_time)
+                    extra_wait_time = path_json[counter]['time'] - path_json[counter - 1]['time'] - (
+                            offset_end_time - offset_time)
                     counter += 1
                     time.sleep(max(0, extra_wait_time))
 
@@ -361,4 +387,3 @@ if __name__ == '__main__':
             time.sleep(0.05)
 
             t0 = t1
-
