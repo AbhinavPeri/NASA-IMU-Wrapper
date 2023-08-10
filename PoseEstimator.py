@@ -37,3 +37,6 @@ class PoseEstimator:
         if self.__receive_data[0].poll(timeout=0.01):
             return self.__receive_data[0].recv()
         return np.zeros(3)
+
+    def reset(self, reset_orientation=np.zeros(3), gps_yaw_offset=0):
+        self.__attitude_estimator.reset(reset_orientation, gps_yaw_offset)
