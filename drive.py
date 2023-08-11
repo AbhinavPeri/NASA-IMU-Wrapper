@@ -11,7 +11,6 @@ import threading
 import sys
 # sys.path.append('/IMUWrapper/NASA-IMU-Wrapper')
 from PoseEstimator import PoseEstimator
-from AttitudeEstimator import AttitudeEstimatorGPSIMU as AttitudeEstimator
 from typing import Any
 from simple_pid import PID
 
@@ -36,17 +35,17 @@ from collections import namedtuple
 
 Point = namedtuple('Point', 'x y theta')
 
-p = PoseEstimator(AttitudeEstimator(freq=20, alpha=0.7, gps_yaw_offset=282))
+p = PoseEstimator(freq=20, alpha=0.7, gps_yaw_offset=282, initial_pose=np.zeros(3))
 p.start()
 
 
 def pi_clip(angle):
     if angle > 0:
-        if angle > math.pi:
-            return angle - 2 * math.pi
+        if angle > 180:
+            return angle - 360
     else:
-        if angle < -math.pi:
-            return angle + 2 * math.pi
+        if angle < -180:
+            return angle + 360
     return angle
 
 

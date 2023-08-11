@@ -17,7 +17,7 @@ class GPS:
         self.__location = [None, None, None, None]
         self.__track_angle_deg = None
         self.__speed_knots = None
-        self.__new_message_receved = False
+        self.__new_message_received = False
 
     def get_data(self):
         self.__new_message_received = self.__gps.update()
