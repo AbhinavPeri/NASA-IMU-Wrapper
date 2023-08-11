@@ -9,6 +9,7 @@ from ahrs.filters import EKF, Madgwick
 
 GRAVITY = np.array([0, 0, 9.802])
 
+
 class IMU:
 
     def __init__(self, freq=52.5, filter_type="K", use_mag=False):
@@ -22,14 +23,13 @@ class IMU:
         self.__gyro = np.zeros(3)
         self.__mag_field = np.zeros(3)
 
-        
         # TODO: Change calibration parameters
         # ACCEL_OFFSET = np.array([-7.56248618e-03, 1.48946819e-01, 0.2475915])
         self.__GYRO_OFFSET = np.array([-0.00135783, 0.00470014, -0.0028537])
         self.__MAG_ELLIPSOID_CENTER = np.array([-18.89318337, -5.33479581, 4.1571599])
         self.__MAG_ELLIPSOID_TRANSFORM = np.array([[0.9656196, -0.02870685, 0.01056554],
-                                            [-0.02870685, 0.97188163, -0.0018772],
-                                            [0.01056554, -0.0018772, 0.96916144]])
+                                                   [-0.02870685, 0.97188163, -0.0018772],
+                                                   [0.01056554, -0.0018772, 0.96916144]])
 
         # ACCEL_OFFSET = ACCEL_OFFSET - GRAVITY
 
@@ -42,7 +42,7 @@ class IMU:
         self.__setup_filter(q0=self.__orientation_q)
 
     def __setup_sensors(self):
-        i2c = busio.I2C(board.SCL, board.SDA, frequency=6700) 
+        i2c = busio.I2C(board.SCL, board.SDA, frequency=6700)
         self.__imu = LSM6DSOX(i2c)
         self.__mag = LIS3MDL(i2c)
 
@@ -86,9 +86,10 @@ class IMU:
         self.__acc = acc
         self.__gyro = gyro
         self.__mag_field = mag
-        
+
         if self.__filter_type == "K":
-            self.__orientation_q = self.__filter.update(self.__orientation_q, gyro, acc, mag=mag if self.__use_mag else None, dt=dt)
+            self.__orientation_q = self.__filter.update(self.__orientation_q, gyro, acc,
+                                                        mag=mag if self.__use_mag else None, dt=dt)
             return
 
         if self.__use_mag:
@@ -96,14 +97,13 @@ class IMU:
         else:
             self.__orientation_q = self.__filter.updateIMU(self.__orientation_q, gyro, acc, dt=dt)
 
-
     def get_data(self):
         return self.__orientation_q, self.__acc, self.__gyro, self.__mag_field
 
     def reset(self, new_orientation_q: np.ndarray):
         self.__orientation_q = new_orientation_q
         # self.__setup_filter(q0=new_orientation_q)
-    
+
     def calibrate(self):
         start_time = time.time()
         cumsum = np.array([0.0, 0.0, 0.0])

@@ -1,4 +1,3 @@
-from AttitudeEstimator import AttitudeEstimatorGPSIMU
 from PoseEstimator import PoseEstimator
 import time
 from squaternion import Quaternion
@@ -6,11 +5,10 @@ from IMUService import IMUService
 import numpy as np
 
 if __name__ == '__main__':
-    
-    attitude_estimator = AttitudeEstimatorGPSIMU(freq=80, alpha=0.7, gps_yaw_offset=282)
-    pose_estimator = PoseEstimator(attitude_estimator)
+
+    pose_estimator = PoseEstimator(freq=80, alpha=0.7, gps_timeout=0)
     pose_estimator.start()
-    # attitude_estimator.start()
+    pose_estimator.reset(reset_orientation=np.array([0, 0, 0]))
     while True:
         angles = pose_estimator.get_orientation()
         print(angles)

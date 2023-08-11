@@ -17,7 +17,7 @@ class GPS:
         self.__location = [None, None, None, None]
         self.__track_angle_deg = None
         self.__speed_knots = None
-        self.__new_message_receved = False
+        self.__new_message_received = False
 
     def get_data(self):
         self.__new_message_received = self.__gps.update()
@@ -32,7 +32,7 @@ class GPS:
     def acquire_gps_fix(self, timeout=-1):
         start = time.time()
         while not self.__gps.has_fix:
-            if time.time() - start > timeout and timeout > 0:
+            if time.time() - start > timeout and timeout >= 0:
                 break
             self.__gps.update()
             print("GPS: Waiting for fix...")
